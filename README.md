@@ -2,7 +2,7 @@
 
 <div align="center">
 
-[![Project Page](https://img.shields.io/badge/Project-Page-Green)](https://vla-adp.github.io/) [![arXiv](https://img.shields.io/badge/Paper-Arxiv-red)](https://arxiv.org/abs/xxxx.xxxxx) [![License](https://img.shields.io/badge/License-Apache%202.0-g.svg)](LICENSE.txt)
+[![Project Page](https://img.shields.io/badge/Project-Page-Green)](https://github.com/chen7086/VLA-ADP) [![arXiv](https://img.shields.io/badge/Paper-Arxiv-red)](https://arxiv.org/abs/xxxx.xxxxx) [![License](https://img.shields.io/badge/License-Apache%202.0-g.svg)](LICENSE.txt)
 
 **Xiaohuan Pei, Yuxing Chen, Siyu Xu, Yunke Wang, Yuheng Shi, Chang Xu**
 
