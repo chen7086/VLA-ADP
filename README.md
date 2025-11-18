@@ -14,6 +14,36 @@
 
 ---
 
+#  Analysis
+
+- **Retrieval Layer Study (qk_layer = 0–32)**  
+  🔗 [Scripts](https://drive.google.com/drive/folders/1WXCHnLB4h5SWbxPbIm5jO6MdFyyb9z3D?usp=sharing) |  📄 [Logs](https://drive.google.com/drive/folders/19lb6SNFAEOcZJuo2RIRUUXMbvKol6yW-?usp=sharing)
+
+
+- **Object Lookback Sweep (Object Suite, Window = 4–10)**  
+    🔗 [Scripts](https://drive.google.com/drive/folders/1WXCHnLB4h5SWbxPbIm5jO6MdFyyb9z3D?usp=sharing) |   📄 [Logs](https://drive.google.com/drive/folders/1XQqPWX70qlOG0ZXRovsw5quyM0b0fTnS?usp=sharing)
+
+- **Trade-off (Static Pruning)**  
+  🔗 [Scripts](https://drive.google.com/drive/folders/1WXCHnLB4h5SWbxPbIm5jO6MdFyyb9z3D?usp=sharing) |  📄 [Logs](https://drive.google.com/drive/folders/1fhWOEvCnEWXXLRe97cxi2Lu-vvEJUptY?usp=sharing)
+
+- **Trade-off (ADP Dynamic Pruning)**  
+  🔗 [Scripts](https://drive.google.com/drive/folders/1WXCHnLB4h5SWbxPbIm5jO6MdFyyb9z3D?usp=sharing) |  📄 [Logs](https://drive.google.com/drive/folders/1DLx4LLgJQcK-mJ2CCZA36NZsbUk4hqkW?usp=sharing)
+
+- **Threshold Sweep (Pruning Ratio Sensitivity)**  
+  🔗 [Scripts](https://drive.google.com/drive/folders/1WXCHnLB4h5SWbxPbIm5jO6MdFyyb9z3D?usp=sharing) |  📄 [Logs](https://drive.google.com/drive/folders/15X3wASfcTIWGeVmxt2oN8o8lIGGFIx9P?usp=sharing)
+
+- **Window Keep Ablation (adjacent_lookback Sweep)**  
+  🔗 [Scripts](https://drive.google.com/drive/folders/1WXCHnLB4h5SWbxPbIm5jO6MdFyyb9z3D?usp=sharing) |  📄 [Logs](https://drive.google.com/drive/folders/1MTktRR8T3vfxZYjL_qsmV3Qw_VtY-Too?usp=sharing)
+
+- **Spatial Lookback Sweep (Spatial Suite, Window = 4–10)**  
+  🔗 [Scripts](https://drive.google.com/drive/folders/1WXCHnLB4h5SWbxPbIm5jO6MdFyyb9z3D?usp=sharing) |  📄 [Logs](https://drive.google.com/drive/folders/1jZADLfFrbIMNyAKa2MjHcFMbZeuc3e2J?usp=sharing)
+
+- **Main Table Ablation (Full Benchmark Comparison)**  
+  🔗 [Scripts](https://drive.google.com/drive/folders/1WXCHnLB4h5SWbxPbIm5jO6MdFyyb9z3D?usp=sharing) |  📄 [Logs](https://drive.google.com/drive/folders/1CZBSQuyPEAuHnWO4d3Q2OQi6VOPKh8mV?usp=sharing)
+
+---
+
+
 ## 🎯 Overview
 
 Vision–Language–Action (VLA) models extend large vision–language models to map visual observations and language instructions to executable robot actions. In the mainstream pipeline, a vision encoder yields dense visual tokens, a projector aligns them to the language space, and an LLM fuses modalities to predict actions—yet the long multi-modal sequences introduce many redundant visual tokens, inflating compute, memory, and latency.
