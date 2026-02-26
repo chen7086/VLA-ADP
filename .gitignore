@@ -41,6 +41,3 @@ venv/
 *.dll
 *.o
 *.out
-
-# Too large files
-LIBERO
