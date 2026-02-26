@@ -796,18 +796,15 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
                                        language_embeddings: torch.Tensor,
                                        vision_embeddings: torch.Tensor,
                                        layer_idx: int) -> torch.Tensor:
-
         device = language_embeddings.device
         dtype = language_embeddings.dtype
 
         is_gpt2 = hasattr(language_model, "transformer") and hasattr(language_model.transformer, "h")
         if is_gpt2:
             layer = language_model.transformer.h[layer_idx]
-
             hidden_text = layer.ln_1(language_embeddings) if hasattr(layer, "ln_1") else language_embeddings
             hidden_vision = layer.ln_1(vision_embeddings) if hasattr(layer, "ln_1") else vision_embeddings
 
- 
             c_attn = layer.attn.c_attn
             qkv_text = c_attn(hidden_text)   # (B, T_text, 3H)
             qkv_vision = c_attn(hidden_vision)  # (B, T_vis, 3H)
@@ -818,7 +815,6 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
             n_head = language_model.config.n_head
             head_dim = language_model.config.n_embd // n_head
         else:
-
             layer = language_model.model.layers[layer_idx]
             hidden_text = layer.input_layernorm(language_embeddings) if hasattr(layer, "input_layernorm") else language_embeddings
             hidden_vision = layer.input_layernorm(vision_embeddings) if hasattr(layer, "input_layernorm") else vision_embeddings
@@ -833,15 +829,14 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         def split_heads(x: torch.Tensor) -> torch.Tensor:
             B, S, H = x.shape
             x = x.view(B, S, n_head, head_dim)
-            return x.permute(0, 2, 1, 3).contiguous()  # (B, nH, S, d)
+            return x.permute(0, 2, 1, 3).contiguous()
 
         q = split_heads(q_text)
         k = split_heads(k_vis)
 
-        # text→vision scores
         scale = 1.0 / (head_dim ** 0.5)
-        scores = torch.matmul(q, k.transpose(-2, -1)) * scale  # (B, nH, T_text, T_vis)
-        importance = scores.mean(dim=(0, 1, 2))  # (T_vis,)
+        scores = torch.matmul(q, k.transpose(-2, -1)) * scale
+        importance = scores.mean(dim=(0, 1, 2))
         return importance.detach().cpu()
 
     def _run_diffusion_prediction(
@@ -863,6 +858,7 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         curr_noisy_actions = noise
 
         # Reverse diffusion: Iteratively denoise to generate action prediction
+
         for t in action_head.noise_scheduler.timesteps:
             # Get diffusion model's noise prediction (conditioned on VLA latent embedding, current noisy action
             # embedding, and diffusion timestep embedding)
@@ -1031,6 +1027,8 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         pixel_values = kwargs["pixel_values"]
         attention_mask = kwargs["attention_mask"]
 
+        #
+
         # Create fake labels tensor (needed for action mask)
         labels = input_ids.clone()
         labels[:] = IGNORE_INDEX
@@ -1056,12 +1054,9 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         # Process vision features
         projected_patch_embeddings = self._process_vision_features(pixel_values, language_embeddings, use_film)
 
-        # [Keep-by-QK] 
         qk_keep_config = kwargs.get("qk_keep_config", None)
 
-        # print("\n------------------------------------------------ ")
-        # print(f"qk_keep_config: {qk_keep_config}")
-        # print("------------------------------------------------\n")
+        
 
         if qk_keep_config and bool(qk_keep_config.get("qk_keep_enabled", False)):
             try:
@@ -1071,171 +1066,82 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
                 qk_debug = bool(qk_keep_config.get("qk_debug", False))
                 qk_log_topk = int(qk_keep_config.get("qk_log_topk", 16))
 
-                # print("\n------------------------------------------------")
-                # print("QK keep config:")
-                # print(f"qk_layer: {qk_layer}")
-                # print(f"qk_keep_ratio: {qk_keep_ratio}")
-                # print(f"qk_keep_split: {qk_keep_split}")
-                # print(f"qk_debug: {qk_debug}")
-                # print(f"qk_log_topk: {qk_log_topk}")
-                # print("------------------------------------------------\n")
-
                 log_topk = int(qk_keep_config.get("log_topk", 16))
                 B, V, D = projected_patch_embeddings.shape
-
                 per_image_patches = int(self.vision_backbone.get_num_patches())
                 num_images = int(self.vision_backbone.get_num_images_in_input())
-                # 默认：未裁剪时，keep 为 [0..V-1]
-                keep_idx_to_store = torch.arange(V, device=projected_patch_embeddings.device).long()
-                # print("B: ", B)
-                # print("V: ", V)
-                # print("D: ", D)
-                # print("------------------------------------------------\n")
-                
                 if V > 0 and (qk_keep_ratio < 1.0):
-                    # === Compute importance at the *true* input of the specified transformer layer ===
-                    if qk_layer > 0:
-                        # Build a "probe" forward to reach the input hidden state of layer `qk_layer`
-                        # Use the same zeroed action tokens as in the real forward so distribution matches.
-                        probe_input_embeddings = input_embeddings * ~all_actions_mask.unsqueeze(-1)
-                        probe_multimodal_embeddings, probe_multimodal_attention_mask = self._build_multimodal_attention(
-                            probe_input_embeddings, projected_patch_embeddings, attention_mask
-                        )
-                        with torch.no_grad():
-                            probe_out = self.language_model(
-                                input_ids=None,
-                                attention_mask=probe_multimodal_attention_mask,
-                                position_ids=None,
-                                past_key_values=None,
-                                inputs_embeds=probe_multimodal_embeddings,
-                                labels=None,
-                                output_hidden_states=True,
-                                use_cache=False,
+                        if qk_layer > 0:
+                            probe_input_embeddings = input_embeddings * ~all_actions_mask.unsqueeze(-1)
+                            probe_multimodal_embeddings, probe_multimodal_attention_mask = self._build_multimodal_attention(
+                                probe_input_embeddings, projected_patch_embeddings, attention_mask
                             )
-                        # Hidden state *before* executing layer `qk_layer` (i.e., the layer's input).
-                        # HF convention: hidden_states[0] is embeddings; hidden_states[L] is input to layer L.
-                        seq_h = probe_out.hidden_states[qk_layer]  # (B, 1 + V + seq, D)
-                        # Split into [BOS | VISION | TEXT...]
-                        V_full = projected_patch_embeddings.shape[1]
-                        bos_h = seq_h[:, :1, :]
-                        vis_h = seq_h[:, 1:1+V_full, :]
-                        tail_h = seq_h[:, 1+V_full:, :]
-                        # print("V_full: ", V_full)
-                        # print("bos_h: ", bos_h.shape)
-                        # print("vis_h: ", vis_h.shape)
-                        # print("tail_h: ", tail_h.shape)
-                        # print("------------------------------------------------\n")
-                        # Keep only non-action text tokens in the tail (consistent with `language_embeddings` extraction)
-                        # Align mask with `tail_h` (which excludes BOS and all visual patches)
-                        tail_mask = (~all_actions_mask[:, 1:]).unsqueeze(-1).expand_as(tail_h)
-                        tail_kept = tail_h[tail_mask].reshape(bos_h.shape[0], -1, bos_h.shape[-1])
-                        text_emb = torch.cat([bos_h, tail_kept], dim=1)
-                        vis_emb = vis_h
-                    else:
-                        text_emb = language_embeddings
-                        vis_emb = projected_patch_embeddings
-                        # print("text_emb: ", text_emb.shape)
-                        # print("vis_emb: ", vis_emb.shape)
-                        # print("------------------------------------------------\n")
-                    importance = self._compute_qk_importance_generic(self.language_model, text_emb, vis_emb, qk_layer)
-                    # print("importance: ", importance.shape)
-                    # print("------------------------------------------------\n")
-                    
-                    keep_total = max(1, int(round(V * qk_keep_ratio)))
-
-                    def _compute_split_counts(total: int, weights, n: int):
-                        # print("now is compute_split_counts")
-                        if not weights or len(weights) != n:
-                            weights = [1.0] * n
-                        s = sum(max(0.0, float(w)) for w in weights)
-                        if s <= 0:
-                            weights = [1.0] * n
-                            s = float(n)
-                        norm = [float(w) / s for w in weights]
-                        counts = [max(1, int(round(total * p))) for p in norm]
-                        diff = total - sum(counts)
-                        order = sorted(range(n), key=lambda i: norm[i], reverse=True)
-                        idx = 0
-                        while diff != 0 and idx < len(order):
-                            i = order[idx]
-                            if diff > 0:
-                                counts[i] += 1
-                                diff -= 1
-                            else:
-                                if counts[i] > 1:
-                                    counts[i] -= 1
-                                    diff += 1
-                            idx = (idx + 1) % len(order)
-                        return counts
-
-                    # print("------------------------------------------------")
-                    # print("num_images: ", num_images)
-                    # print("per_image_patches: ", per_image_patches)
-                    # print("V: ", V)
-                    # print("qk_keep_split: ", qk_keep_split)
-                    # print("qk_debug: ", qk_debug)
-                    # print("qk_log_topk: ", qk_log_topk)
-                    # print("keep_total: ", keep_total)
-                    # print("------------------------------------------------\n")
-
-                    if (num_images > 1) and (per_image_patches * num_images == V):
-                        weights = qk_keep_split if isinstance(qk_keep_split, list) else None
-                        if weights and len(weights) == 2 and num_images > 2:
-                            main_w, wrist_w = weights
-                            rest = num_images - 1
-                            weights = [main_w] + [wrist_w / rest] * rest
-                        per_image_keep = _compute_split_counts(keep_total, weights, num_images)
-                        kept = []
-                        for i in range(num_images):
-                            start = i * per_image_patches
-                            end = start + per_image_patches
-                            k_i = min(per_image_keep[i], per_image_patches)
-                            vals_i, idx_i = torch.topk(importance[start:end], k=k_i, largest=True, sorted=False)
-                            kept.append((idx_i + start).to(projected_patch_embeddings.device))
-                            if qk_debug:
-                                try:
-                                    top_log_k = min(log_topk, int(k_i))
-                                    head_idx = (idx_i[:top_log_k] + start).tolist()
-                                    print(
-                                        f"[QK_DEBUG] cam={i}/{num_images-1} keep={int(k_i)}/{per_image_patches} top{top_log_k}_idx={head_idx}"
-                                    )
-                                except Exception:
-                                    pass
-                        keep_idx = torch.sort(torch.cat(kept, dim=0).long())[0]
-                        keep_idx_to_store = keep_idx
-                    else:
-                        vals, idx = torch.topk(importance, k=keep_total, largest=True, sorted=True)
-                        keep_idx = idx.to(projected_patch_embeddings.device).long()
-                        keep_idx_to_store = keep_idx
-                        if qk_debug:
-                            try:
-                                top_log_k = min(log_topk, int(keep_total))
-                                print(
-                                    f"[QK_DEBUG] global keep={int(keep_total)}/{V} top{top_log_k}_idx={keep_idx[:top_log_k].tolist()}"
+                            with torch.no_grad():
+                                probe_out = self.language_model(
+                                    input_ids=None,
+                                    attention_mask=probe_multimodal_attention_mask,
+                                    position_ids=None,
+                                    past_key_values=None,
+                                    inputs_embeds=probe_multimodal_embeddings,
+                                    labels=None,
+                                    output_hidden_states=True,
+                                    use_cache=False,
                                 )
-                            except Exception:
-                                pass
-                    projected_patch_embeddings = projected_patch_embeddings.index_select(dim=1, index=keep_idx)
-                    if qk_debug:
-                        try:
-                            print(
-                                f"[QK_DEBUG] final_vis_tokens={int(projected_patch_embeddings.shape[1])}; "
-                                f"per_image_patches={per_image_patches}; num_images={num_images}"
-                            )
-                        except Exception:
-                            pass
-                # 缓存本次 keep 信息（主摄像机覆盖可视化使用）
-                try:
-                    self._last_qk_keep_info = {
-                        "per_image_patches": int(per_image_patches),
-                        "num_images": int(num_images),
-                        "V": int(V),
-                        "keep_idx": keep_idx_to_store.detach().cpu(),
-                        "qk_keep_ratio": float(qk_keep_ratio),
-                        "enabled": bool(qk_keep_config.get("qk_keep_enabled", False)),
-                    }
-                except Exception:
-                    pass
+                            seq_h = probe_out.hidden_states[qk_layer]
+                            V_full = projected_patch_embeddings.shape[1]
+                            bos_h = seq_h[:, :1, :]
+                            vis_h = seq_h[:, 1:1+V_full, :]
+                            tail_h = seq_h[:, 1+V_full:, :]
+                            tail_mask = (~all_actions_mask[:, 1:]).unsqueeze(-1).expand_as(tail_h)
+                            tail_kept = tail_h[tail_mask].reshape(bos_h.shape[0], -1, bos_h.shape[-1])
+                            text_emb = torch.cat([bos_h, tail_kept], dim=1)
+                            vis_emb = vis_h
+                        else:
+                            text_emb = language_embeddings
+                            vis_emb = projected_patch_embeddings
+                        importance = self._compute_qk_importance_generic(self.language_model, text_emb, vis_emb, qk_layer)
+                        
+                        keep_total = max(1, int(round(V * qk_keep_ratio)))
+
+                        if (num_images > 1) and (per_image_patches * num_images == V):
+                            weights = qk_keep_split if isinstance(qk_keep_split, list) else None
+                            if weights and len(weights) == 2 and num_images > 2:
+                                main_w, wrist_w = weights
+                                rest = num_images - 1
+                                weights = [main_w] + [wrist_w / rest] * rest
+                            if not weights or len(weights) != num_images:
+                                weights = [1.0] * num_images
+                            s = sum(max(0.0, float(w)) for w in weights)
+                            if s <= 0:
+                                weights = [1.0] * num_images
+                                s = float(num_images)
+                            norm = [float(w) / s for w in weights]
+                            per_image_keep = [max(1, int(round(keep_total * p))) for p in norm]
+                            diff = keep_total - sum(per_image_keep)
+                            order = sorted(range(num_images), key=lambda i: norm[i], reverse=True)
+                            idx = 0
+                            while diff != 0 and idx < len(order):
+                                i = order[idx]
+                                if diff > 0:
+                                    per_image_keep[i] += 1
+                                    diff -= 1
+                                else:
+                                    if per_image_keep[i] > 1:
+                                        per_image_keep[i] -= 1
+                                        diff += 1
+                                idx = (idx + 1) % len(order)
+                            kept = []
+                            for i in range(num_images):
+                                start = i * per_image_patches
+                                end = start + per_image_patches
+                                k_i = min(per_image_keep[i], per_image_patches)
+                                vals_i, idx_i = torch.topk(importance[start:end], k=k_i, largest=True, sorted=False)
+                                kept.append((idx_i + start).to(projected_patch_embeddings.device))
+                            keep_idx = torch.sort(torch.cat(kept, dim=0).long())[0]
+                        else:
+                            vals, idx = torch.topk(importance, k=keep_total, largest=True, sorted=True)
+                            keep_idx = idx.to(projected_patch_embeddings.device).long()
+                        projected_patch_embeddings = projected_patch_embeddings.index_select(dim=1, index=keep_idx)
             except Exception as e:
                 import traceback; traceback.print_exc()
                 print(f"[QK_KEEP] exception at layer={qk_layer}: {e}")
@@ -1257,7 +1163,6 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
         # Calculate number of patches based on actual sequence lengths constructed above
         # Start from the true visual patches count (after optional dropping), then add extras deterministically
         NUM_PATCHES = num_visual_patches + (1 if use_proprio else 0) + (1 if use_diffusion else 0)
-
 
         if use_diffusion:
             # Sample random noise with shape equal to output action, used as the starting state for reverse diffusion
@@ -1290,6 +1195,8 @@ class OpenVLAForActionPrediction(PrismaticForConditionalGeneration):
                 NUM_PROMPT_TOKENS,
                 action_head,
             )
+
+        
 
         # Unnormalize predicted actions
         actions = self._unnormalize_actions(normalized_actions, unnorm_key)

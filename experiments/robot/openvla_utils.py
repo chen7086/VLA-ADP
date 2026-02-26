@@ -35,27 +35,6 @@ from prismatic.vla.constants import (
 )
 from prismatic.vla.datasets.rlds.utils.data_utils import NormalizationType
 
-# Sparse VLA support
-try:
-    sys.path.append(os.path.join(os.path.dirname(__file__), "../../sparsevla"))
-    from vla_sparse_attention import VLASparseAttentionConfig
-    from prismatic.models.vlas.sparse_openvla import SparseOpenVLA
-    SPARSE_VLA_AVAILABLE = True
-except ImportError:
-    SPARSE_VLA_AVAILABLE = False
-    SparseOpenVLA = None
-    VLASparseAttentionConfig = None
-
-# Prune VLA support
-try:
-    from prunevla.configs.prune_config import PruneVLAConfig
-    from prunevla.prune_kv_attention import replace_attention_with_prune
-    PRUNE_VLA_AVAILABLE = True
-except ImportError:
-    PRUNE_VLA_AVAILABLE = False
-    PruneVLAConfig = None  # type: ignore
-    replace_attention_with_prune = None  # type: ignore
-
 # Initialize important constants
 DATE = time.strftime("%Y_%m_%d")
 DATE_TIME = time.strftime("%Y_%m_%d-%H_%M_%S")
@@ -774,16 +753,12 @@ def get_vla_action(
     """
     with torch.inference_mode():
 
-        # Optional debug: show env var controlling vision token drop (handled inside model.predict_action)
         try:
             drop_k_env = os.environ.get("OPENVLA_DROP_VISION_TOKENS", "0")
-            # print(f"[OPENVLA_DEBUG] OPENVLA_DROP_VISION_TOKENS={drop_k_env}")
         except Exception:
             pass
 
-        # Determine effective number of images (dynamic camera strategy aware)
         effective_num_images = getattr(cfg, "_dyn_num_images", cfg.num_images_in_input)
-        # print(f"[OPENVLA_DEBUG] OPENVLA_DYN_NUM_IMAGES={effective_num_images}")
 
         # Optionally update model's expectation for number of images
         try:
@@ -827,8 +802,6 @@ def get_vla_action(
             obs["state"] = normalize_proprio(proprio, proprio_norm_stats)
             proprio = obs["state"]
 
-        # Generate action
-        # 构造 QK 保留配置（由上层 cfg 控制），传入底层 predict_action
         qk_keep_config = None
         try:
             if getattr(cfg, "qk_keep_enabled", False):
@@ -839,7 +812,6 @@ def get_vla_action(
                 log_topk = int(getattr(cfg, "qk_log_topk", 16))
                 if isinstance(split, str):
                     try:
-                        # 允许 "0.5,0.5" 形式
                         split = [float(x) for x in split.split(",")]
                     except Exception:
                         split = None
@@ -851,6 +823,15 @@ def get_vla_action(
                     "qk_debug": debug,
                     "qk_log_topk": log_topk,
                 }
+                try:
+                    if bool(getattr(cfg, "random_experiment", False)):
+                        qk_keep_config.update({
+                            "random_experiment": True,
+                            "random_keep_ratio": float(getattr(cfg, "random_keep_ratio", 0.3)),
+                            "random_seed": getattr(cfg, "random_seed", None),
+                        })
+                except Exception:
+                    pass
         except Exception:
             qk_keep_config = None
 
@@ -901,87 +882,3 @@ def get_action_from_server(
     )
     return response.json()
 
-
-def get_vla_with_sparse_attention(cfg: Any, sparse_config: Optional[VLASparseAttentionConfig] = None):
-    """
-    Load VLA model with optional sparse attention.
-    
-    Args:
-        cfg: Configuration object containing model path and parameters
-        sparse_config: Sparse attention configuration, if None loads original model
-    
-    Returns:
-        VLA model instance (original or sparse version)
-    """
-    if sparse_config is not None and SPARSE_VLA_AVAILABLE:
-        # Load original VLA model first
-        vla = get_vla(cfg)
-
-        # 动态覆盖关键区间：与模型真实输入对齐（失败即报错）
-        per_image_patches = int(vla.vision_backbone.get_num_patches())
-        num_images = int(vla.vision_backbone.get_num_images_in_input())
-        if per_image_patches <= 0 or num_images <= 0:
-            raise RuntimeError("Invalid vision backbone patch/images settings for sparse attention")
-        num_patches = per_image_patches * num_images
-
-        extra = (1 if cfg.use_proprio else 0) + (1 if getattr(cfg, "use_diffusion", False) else 0)
-        sparse_config.instruction_start = 1 + num_patches + extra
-        sparse_config.vision_range = (1, 1 + num_patches)
-
-        # 用模型 norm_stats 直接推断动作维度，避免依赖未解析的 unnorm_key
-        stats_any = next(iter(vla.norm_stats.values())) if hasattr(vla, "norm_stats") else None
-        if not stats_any or "action" not in stats_any or "min" not in stats_any["action"]:
-            raise RuntimeError("Failed to infer action_dim from model.norm_stats for sparse attention")
-        action_dim = int(len(stats_any["action"]["min"]))
-        if action_dim <= 0:
-            raise RuntimeError("Failed to resolve action_dim for sparse attention; check unnorm_key and model stats")
-        sparse_config.expected_action_tokens = int(action_dim * NUM_ACTIONS_CHUNK)
-
-        # Convert to sparse version
-        sparse_vla = SparseOpenVLA.from_existing_vla(vla, sparse_config)
-
-        return sparse_vla
-    else:
-        if sparse_config is not None and not SPARSE_VLA_AVAILABLE:
-            print("WARNING: Sparse VLA not available, using original model")
-        
-        return get_vla(cfg)
-
-
-def get_vla_with_prune_attention(cfg: Any, prune_config: Optional["PruneVLAConfig"] = None):
-    """
-    Load VLA model with optional KV-pruning attention replacement.
-    """
-    if prune_config is not None and PRUNE_VLA_AVAILABLE:
-        vla = get_vla(cfg)
-        # 动态覆盖关键区间：与模型真实输入对齐（失败即报错）
-        per_image_patches = int(vla.vision_backbone.get_num_patches())
-        num_images = int(vla.vision_backbone.get_num_images_in_input())
-        if per_image_patches <= 0 or num_images <= 0:
-            raise RuntimeError("Invalid vision backbone patch/images settings for prune attention")
-        num_patches = per_image_patches * num_images
-
-        extra = (1 if cfg.use_proprio else 0) + (1 if getattr(cfg, "use_diffusion", False) else 0)
-        prune_config.instruction_start = 1 + num_patches + extra
-        # 对齐视觉范围到真实 patch 数
-        prune_config.vision_range = (1, 1 + num_patches)
-
-        # 用模型 norm_stats 直接推断动作维度，避免依赖未解析的 unnorm_key
-        stats_any = next(iter(vla.norm_stats.values())) if hasattr(vla, "norm_stats") else None
-        if not stats_any or "action" not in stats_any or "min" not in stats_any["action"]:
-            raise RuntimeError("Failed to infer action_dim from model.norm_stats for prune attention")
-        action_dim = int(len(stats_any["action"]["min"]))
-        if action_dim <= 0:
-            raise RuntimeError("Failed to resolve action_dim for prune attention; check unnorm_key and model stats")
-        prune_config.expected_action_tokens = int(action_dim * NUM_ACTIONS_CHUNK)
-
-        replace_attention_with_prune(vla, prune_config)
-        try:
-            setattr(vla, "prune_config", prune_config)
-        except Exception:
-            pass
-        return vla
-    else:
-        if prune_config is not None and not PRUNE_VLA_AVAILABLE:
-            print("WARNING: Prune VLA not available, using original model")
-        return get_vla(cfg)
