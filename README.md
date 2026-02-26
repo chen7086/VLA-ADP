@@ -83,6 +83,11 @@ pip install -e .
 
 # 🧪 PRUNE_V2 Evaluation
 
+After finishing the OpenVLA-OFT installation, please replace the following folders in your OpenVLA-OFT directory with the ones provided in this repository:
+
+- `experiments/`
+- `prismatic/`
+
 ## Run PRUNE_V2
 
 ```bash
