@@ -6,7 +6,7 @@
 [![ICLR 2026](https://img.shields.io/badge/ICLR-2026-blue)](https://arxiv.org/pdf/2509.22093)
 [![License](https://img.shields.io/badge/License-Apache%202.0-g.svg)](LICENSE.txt)
 
-**Xiaohuan Pei, Yuxing Chen, Siyu Xu, Yunke Wang, Yuheng Shi, Chang Xu**
+**Xiaohuan Pei\*, Yuxing Chen\*, Siyu Xu, Yunke Wang, Yuheng Shi, Chang Xu**
 
 </div>
 
@@ -123,28 +123,6 @@ python experiments/robot/libero/run_libero_eval_prune_v2.py \
   "tol_equal": 0.0
 }
 ```
-
----
-
-## Static Pruning (Layer-wise Schedule)
-
-```json
-{
-  "prune_schedule": [
-    { "layer": 15, "cumulative_keep": 0.75 },
-    { "layer": 23, "cumulative_keep": 0.50 }
-  ]
-}
-```
-
----
-
-# 🚀 Quick Start
-
-```bash
-python prunevla/experiment_controller.py --config quick
-```
-
 ---
 
 # 📊 Analysis
@@ -180,15 +158,6 @@ python prunevla/experiment_controller.py --config quick
 - **Main Table Ablation (Full Benchmark Comparison)**  
   🔗 [Scripts](https://drive.google.com/drive/folders/1WXCHnLB4h5SWbxPbIm5jO6MdFyyb9z3D?usp=sharing) |  
   📄 [Logs](https://drive.google.com/drive/folders/1CZBSQuyPEAuHnWO4d3Q2OQi6VOPKh8mV?usp=sharing)
-
----
-
-# 📊 Attention Visualization
-
-```bash
-python prunevla/experiment_controller.py --config attn_dump
-python prunevla/view_attn_npz.py prunevla/logs/attn/<timestamp>/
-```
 
 ---
 
