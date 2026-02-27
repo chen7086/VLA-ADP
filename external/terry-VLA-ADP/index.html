@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VLA-ADP: Action-aware Dynamic Pruning for Efficient VLA Manipulation</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ══════════════════════════════════════════
+       Morandi Palette
+       --bg:        #F4F1ED  warm off-white
+       --bg-alt:    #E9E4DD  dusty linen
+       --text:      #2C2825  deep warm brown
+       --muted:     #7A756F  warm gray
+       --divider:   #CFC9C1
+       Accents (per box):
+         rose   #B5887D / #F2EDEB
+         sage   #7EA57F / #E9F0EA
+         blue   #789FAD / #E6EEF2
+         gold   #B5A069 / #F1EBD9
+    ══════════════════════════════════════════ */
+
+    :root {
+      --bg:      #F4F1ED;
+      --bg-alt:  #E9E4DD;
+      --text:    #2C2825;
+      --muted:   #7A756F;
+      --div:     #CFC9C1;
+      --blue:    #789FAD;
+      --rose:    #B5887D;
+      --sage:    #7EA57F;
+      --gold:    #B5A069;
+    }
+
+    /* ─── Global ─── */
+    body {
+      font-family: 'Noto Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* ─── Hero ─── */
+    .hero { background: var(--bg); }
+    .hero-body { padding: 3rem 1.5rem 2rem; }
+
+    .publication-title {
+      font-family: 'Google Sans', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      line-height: 1.25;
+      color: var(--text);
+    }
+    .venue-badge {
+      display: inline-block;
+      background: var(--blue);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.28em 1em;
+      border-radius: 999px;
+      margin-bottom: 1rem;
+      letter-spacing: 0.06em;
+    }
+    .publication-authors { font-size: 1.05rem; margin-top: 0.6rem; }
+    .publication-authors a { color: var(--blue); text-decoration: none; }
+    .publication-authors a:hover { text-decoration: underline; }
+    .author-block { display: inline-block; margin: 0 0.4em; }
+    .affiliation { font-size: 0.92rem; color: var(--muted); margin-top: 0.3rem; }
+
+    /* ─── Link buttons ─── */
+    .link-buttons {
+      display: flex; flex-wrap: wrap; gap: 0.6rem;
+      justify-content: center; margin-top: 1.2rem;
+    }
+    .link-btn {
+      display: inline-flex; align-items: center; gap: 0.45em;
+      padding: 0.48em 1.2em;
+      border-radius: 999px;
+      border: 1.8px solid #4A4540;
+      font-size: 0.93rem; font-weight: 600;
+      color: var(--text); background: transparent;
+      text-decoration: none;
+      transition: background 0.18s, color 0.18s, border-color 0.18s;
+    }
+    .link-btn:hover { background: #4A4540; color: #F4F1ED; border-color: #4A4540; }
+
+    /* ─── Sections ─── */
+    section.section { padding: 3rem 1.5rem; background: var(--bg); }
+    section.section.alt { background: var(--bg-alt); }
+
+    .section-title {
+      font-family: 'Google Sans', sans-serif;
+      font-size: 1.72rem; font-weight: 700;
+      margin-bottom: 1.1rem; color: var(--text);
+    }
+    .section-divider {
+      border: none; border-top: 1px solid var(--div);
+      margin: 0 0 2.2rem 0;
+    }
+    .abstract-text {
+      font-size: 1.05rem; line-height: 1.78; color: #3E3A36;
+      max-width: 820px; margin: 0 auto;
+    }
+    .abstract-text b { color: var(--text); }
+
+    /* ─── Figures ─── */
+    .figure-container {
+      text-align: center; margin: 1.5rem auto; max-width: 960px;
+    }
+    .figure-container img {
+      max-width: 100%; border-radius: 8px;
+      box-shadow: 0 3px 16px rgba(44,40,37,0.10);
+    }
+    .figure-caption {
+      margin-top: 0.8rem; font-size: 0.91rem;
+      color: var(--muted); line-height: 1.6;
+      max-width: 820px; margin-left: auto; margin-right: auto;
+    }
+
+    /* ─── Side-by-side figures ─── */
+    .figure-row {
+      display: flex; gap: 1.5rem;
+      justify-content: center; align-items: flex-start;
+      flex-wrap: wrap; max-width: 960px; margin: 0 auto;
+    }
+    .figure-row .fig-item { flex: 1; min-width: 280px; text-align: center; }
+    .figure-row .fig-item img {
+      max-width: 100%; border-radius: 8px;
+      box-shadow: 0 3px 16px rgba(44,40,37,0.10);
+    }
+
+    /* ─── Video grid ─── */
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.8rem; max-width: 960px; margin: 0 auto;
+    }
+    @media (max-width: 800px) { .video-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .video-grid { grid-template-columns: 1fr; } }
+
+    .video-card {
+      border-radius: 8px; overflow: hidden;
+      box-shadow: 0 3px 14px rgba(44,40,37,0.10);
+      background: var(--bg-alt);
+    }
+    .video-card video { width: 100%; display: block; }
+    .video-label {
+      padding: 0.5rem 0.7rem; font-size: 0.82rem;
+      color: var(--muted); line-height: 1.4;
+      border-top: 1px solid var(--div);
+    }
+    .video-label b { color: var(--text); }
+
+    /* ─── Metric highlight boxes ─── */
+    .result-highlights {
+      display: flex; flex-wrap: wrap; gap: 1.2rem;
+      justify-content: center; max-width: 960px;
+      margin: 2.5rem auto 0;
+    }
+    .result-box {
+      flex: 1; min-width: 200px; max-width: 220px;
+      border-radius: 10px;
+      padding: 1.6rem 1.2rem 1.4rem;
+      text-align: center;
+      position: relative; overflow: hidden;
+      box-shadow: 0 4px 20px rgba(44,40,37,0.09);
+    }
+    /* top accent bar */
+    .result-box::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 5px;
+    }
+    .result-box.rose  { background: #F2EDEB; } .result-box.rose::before  { background: var(--rose); }
+    .result-box.sage  { background: #E9F0EA; } .result-box.sage::before  { background: var(--sage); }
+    .result-box.blue  { background: #E6EEF2; } .result-box.blue::before  { background: var(--blue); }
+    .result-box.gold  { background: #F1EBD9; } .result-box.gold::before  { background: var(--gold); }
+
+    .result-box .metric {
+      font-family: 'Google Sans', sans-serif;
+      font-size: 3.2rem; font-weight: 700;
+      line-height: 1; letter-spacing: -0.02em;
+    }
+    .result-box.rose .metric { color: var(--rose); }
+    .result-box.sage .metric { color: var(--sage); }
+    .result-box.blue .metric { color: var(--blue); }
+    .result-box.gold .metric { color: var(--gold); }
+
+    .result-box .metric-label {
+      margin-top: 0.65rem;
+      font-size: 0.84rem; color: var(--muted);
+      line-height: 1.45;
+    }
+
+    /* ─── BibTeX ─── */
+    .bibtex-block {
+      background: var(--bg-alt); border: 1px solid var(--div);
+      border-radius: 8px; padding: 1.4rem 1.6rem;
+      position: relative;
+      font-family: 'Courier New', monospace;
+      font-size: 0.88rem; line-height: 1.7;
+      white-space: pre-wrap;
+      max-width: 720px; margin: 0 auto;
+      color: var(--text);
+    }
+    .copy-btn {
+      position: absolute; top: 0.8rem; right: 0.8rem;
+      background: var(--blue); color: white;
+      border: none; border-radius: 5px;
+      padding: 0.3em 0.9em; font-size: 0.82rem;
+      cursor: pointer; font-family: 'Noto Sans', sans-serif;
+      transition: background 0.15s;
+    }
+    .copy-btn:hover { background: #5f8898; }
+    .copy-btn.copied { background: var(--sage); }
+
+    /* ─── Footer ─── */
+    footer.footer {
+      background: var(--bg-alt); border-top: 1px solid var(--div);
+      padding: 2rem 1.5rem; text-align: center;
+      font-size: 0.88rem; color: var(--muted);
+    }
+    footer a { color: var(--blue); }
+  </style>
+</head>
+
+<body>
+
+<!-- ════════════════════ HERO ════════════════════ -->
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop has-text-centered">
+
+      <span class="venue-badge">ICLR 2026</span>
+
+      <h1 class="publication-title">
+        Action-aware Dynamic Pruning for<br>
+        Efficient Vision-Language-Action Manipulation
+      </h1>
+
+      <div class="publication-authors" style="margin-top:1rem;">
+        <span class="author-block">
+          <a href="#">Xiaohuan Pei</a><sup>1,*</sup>,
+        </span>
+        <span class="author-block">
+          <a href="#">Yuxing Chen</a><sup>1,*</sup>,
+        </span>
+        <span class="author-block">
+          <a href="#">Siyu Xu</a><sup>1</sup>,
+        </span>
+        <span class="author-block">
+          <a href="#">Yunke Wang</a><sup>1</sup>,
+        </span>
+        <span class="author-block">
+          <a href="#">Yuheng Shi</a><sup>1</sup>,
+        </span>
+        <span class="author-block">
+          <a href="#">Chang Xu</a><sup>1</sup>
+        </span>
+      </div>
+
+      <div class="affiliation"><sup>1</sup>University of Sydney</div>
+
+      <div class="link-buttons">
+        <a href="https://arxiv.org/abs/2509.22093" class="link-btn" target="_blank">
+          <span class="icon"><i class="fas fa-file-pdf"></i></span><span>Paper</span>
+        </a>
+        <a href="https://github.com/TerryPei/VLA-ADP" class="link-btn" target="_blank">
+          <span class="icon"><i class="fab fa-github"></i></span><span>Code</span>
+        </a>
+        <a href="https://arxiv.org/abs/2509.22093" class="link-btn" target="_blank">
+          <span class="icon"><i class="fas fa-globe"></i></span><span>arXiv</span>
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════ TEASER ════════════════════ -->
+<section class="section" style="padding-top:1rem; padding-bottom:2.5rem;">
+  <div class="container is-max-desktop">
+
+    <!-- Main motivation figure -->
+    <div class="figure-container">
+      <img src="assests/motivation.png" alt="Motivation: token redundancy varies across manipulation stages">
+      <p class="figure-caption">
+        <b>Motivation.</b> Visual token redundancy varies significantly across robot manipulation stages.
+        VLA-ADP exploits end-effector motion as a dynamic gating signal to identify and prune
+        redundant tokens at each timestep, reducing computation without sacrificing task success.
+      </p>
+    </div>
+
+    <!-- Demo videos directly below main figure -->
+    <div style="margin-top:2rem;">
+      <p class="has-text-centered" style="margin-bottom:1rem; color:var(--muted); font-size:0.94rem;">
+        Real-world ALOHA demonstrations — VLA-ADP applied to OpenVLA-OFT (1.5× speed)
+      </p>
+      <div class="video-grid">
+        <div class="video-card">
+          <video controls muted playsinline loop autoplay preload="auto">
+            <source src="assests/2025_09_11-19_42_44--openvla_oft--episode=7--success=True--task=put_the_white_mug_on_the_plate_and_put_the_chocola.mp4" type="video/mp4">
+          </video>
+          <div class="video-label"><b>Task 1:</b> Put the white mug on the plate and put the chocolate on the plate</div>
+        </div>
+        <div class="video-card">
+          <video controls muted playsinline loop autoplay preload="auto">
+            <source src="assests/2025_09_11-19_47_37--openvla_oft--episode=4--success=True--task=open_the_top_drawer_and_put_the_bowl_inside.mp4" type="video/mp4">
+          </video>
+          <div class="video-label"><b>Task 2:</b> Open the top drawer and put the bowl inside</div>
+        </div>
+        <div class="video-card">
+          <video controls muted playsinline loop autoplay preload="auto">
+            <source src="assests/2025_09_11-19_57_31--openvla_oft--episode=6--success=True--task=pick_up_the_tomato_sauce_and_place_it_in_the_baske.mp4" type="video/mp4">
+          </video>
+          <div class="video-label"><b>Task 3:</b> Pick up the tomato sauce and place it in the basket</div>
+        </div>
+        <div class="video-card">
+          <video controls muted playsinline loop autoplay preload="auto">
+            <source src="assests/2025_09_11-20_01_43--openvla_oft--episode=9--success=True--task=pick_up_the_black_bowl_next_to_the_plate_and_place.mp4" type="video/mp4">
+          </video>
+          <div class="video-label"><b>Task 4:</b> Pick up the black bowl next to the plate and place it on the rack</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metric highlight boxes -->
+    <div class="result-highlights">
+      <div class="result-box rose">
+        <div class="metric">1.49×</div>
+        <div class="metric-label">Real-world latency speedup<br>76.9 ms → 51.8 ms</div>
+      </div>
+      <div class="result-box sage">
+        <div class="metric">88.3%</div>
+        <div class="metric-label">Real-world success rate<br>up from 85.8% baseline</div>
+      </div>
+      <div class="result-box blue">
+        <div class="metric">1.35×</div>
+        <div class="metric-label">LLM speedup on LIBERO<br>at 30–40% token keep ratio</div>
+      </div>
+      <div class="result-box gold">
+        <div class="metric">≤0.9%</div>
+        <div class="metric-label">SR drop at 50–70%<br>keep ratio (LIBERO)</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════════════════ ABSTRACT ════════════════════ -->
+<section class="section alt" style="padding: 2.5rem 1.5rem;">
+  <div class="container is-max-desktop">
+    <h2 class="section-title has-text-centered">Abstract</h2>
+    <hr class="section-divider">
+    <p class="abstract-text has-text-centered">
+      We propose <b>Action-aware Dynamic Pruning (ADP)</b>, a training-free, plug-and-play method
+      that adaptively prunes redundant visual tokens across manipulation stages by combining
+      <em>text-driven token relevance</em> with an <em>action-aware gating signal</em> derived from
+      end-effector motion.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════ METHOD ════════════════════ -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="section-title has-text-centered">Method Overview</h2>
+    <hr class="section-divider">
+    <div class="figure-row">
+      <div class="fig-item" style="flex: 2;">
+        <img src="assests/main2.png" alt="ADP method overview">
+        <p class="figure-caption" style="text-align:left;">
+          <b>ADP Architecture.</b> ADP maintains an observation window of past states and uses
+          end-effector velocity/acceleration to produce a dynamic gating decision. The gate selects
+          between <em>sparse</em> and <em>dense</em> token retention ratios, and text-driven
+          cross-attention scores rank tokens by relevance before pruning.
+        </p>
+      </div>
+      <div class="fig-item" style="flex: 1;">
+        <img src="assests/prune3.png" alt="Token pruning visualization">
+        <p class="figure-caption" style="text-align:left;">
+          <b>Token Pruning.</b> Spatially redundant background tokens (low attention score) are
+          removed while task-relevant tokens are preserved, maintaining action prediction fidelity.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════ RESULTS ════════════════════ -->
+<section class="section alt">
+  <div class="container is-max-desktop">
+    <h2 class="section-title has-text-centered">Experimental Results</h2>
+    <hr class="section-divider">
+
+    <h3 class="has-text-centered" style="font-size:1.1rem; font-weight:600; margin: 0 0 0.8rem; color:var(--text);">
+      Simulation Results (LIBERO Benchmark)
+    </h3>
+    <div class="figure-container">
+      <img src="assests/libero_table.png" alt="LIBERO simulation results table">
+      <p class="figure-caption">
+        Comparison against OpenVLA, SparseVLM, FastVLM, and other VLA methods across four LIBERO
+        task suites (Spatial, Object, Goal, Long). VLA-ADP achieves 94.4–99.0% SR with 1.13–1.35× LLM speedup.
+      </p>
+    </div>
+
+    <div class="figure-container" style="margin-top:1.5rem;">
+      <img src="assests/libero.png" alt="LIBERO task suite visualization">
+      <p class="figure-caption">
+        LIBERO benchmark task suites used for simulation evaluation: Spatial, Object, Goal, and Long.
+      </p>
+    </div>
+
+    <h3 class="has-text-centered" style="font-size:1.1rem; font-weight:600; margin: 2.5rem 0 0.8rem; color:var(--text);">
+      Real-World Results (ALOHA Robot)
+    </h3>
+    <div class="figure-container">
+      <img src="assests/real_table.png" alt="Real-world results table">
+      <p class="figure-caption">
+        VLA-ADP improves SR from 85.8% to 88.3% while reducing latency by 33% (76.9 → 51.8 ms),
+        achieving a <b>1.49× speedup</b> on real hardware.
+      </p>
+    </div>
+
+    <div class="figure-container" style="margin-top:1.5rem;">
+      <img src="assests/real.jpg" alt="Real-world robot setup">
+      <p class="figure-caption">
+        Real-world experimental setup: bimanual ALOHA robot performing tabletop manipulation tasks.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════ CITATION ════════════════════ -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="section-title has-text-centered">Citation</h2>
+    <hr class="section-divider">
+    <div style="position:relative; max-width:720px; margin:0 auto;">
+      <pre class="bibtex-block" id="bibtex-text">@article{pei2025action,
+  title={Action-aware dynamic pruning for efficient
+         vision-language-action manipulation},
+  author={Pei, Xiaohuan and Chen, Yuxing and Xu, Siyu
+          and Wang, Yunke and Shi, Yuheng and Xu, Chang},
+  journal={arXiv preprint arXiv:2509.22093},
+  year={2025}
+}</pre>
+      <button class="copy-btn" id="copy-btn" onclick="copyBibTeX()">Copy</button>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════ ACKNOWLEDGEMENTS ════════════════════ -->
+<section class="section alt" style="padding-bottom:2rem;">
+  <div class="container is-max-desktop">
+    <h2 class="section-title has-text-centered">Acknowledgements</h2>
+    <hr class="section-divider">
+    <p class="abstract-text has-text-centered" style="font-size:0.96rem;">
+      We thank the authors of
+      <a href="https://github.com/moojink/openvla-oft" target="_blank" style="color:var(--blue);">OpenVLA-OFT</a>,
+      <a href="https://github.com/openvla/openvla" target="_blank" style="color:var(--blue);">OpenVLA</a>, and
+      <a href="https://huggingface.co/docs/transformers" target="_blank" style="color:var(--blue);">Hugging Face Transformers</a>
+      for making their code publicly available.
+      This project page was inspired by the
+      <a href="https://nerfies.github.io/" target="_blank" style="color:var(--blue);">Nerfies</a> template.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════ FOOTER ════════════════════ -->
+<footer class="footer">
+  <p>
+    &copy; 2025 VLA-ADP Authors. Released under the
+    <a href="https://github.com/TerryPei/VLA-ADP/blob/main/LICENSE" target="_blank">Apache 2.0 License</a>.
+  </p>
+  <p style="margin-top:0.4rem;">
+    Page template adapted from <a href="https://nerfies.github.io/" target="_blank">Nerfies</a>.
+  </p>
+</footer>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('video').forEach(v => {
+      v.playbackRate = 1.5;
+      v.addEventListener('play', () => { v.playbackRate = 1.5; });
+    });
+  });
+
+  function copyBibTeX() {
+    const text = `@article{pei2025action,
+  title={Action-aware dynamic pruning for efficient vision-language-action manipulation},
+  author={Pei, Xiaohuan and Chen, Yuxing and Xu, Siyu and Wang, Yunke and Shi, Yuheng and Xu, Chang},
+  journal={arXiv preprint arXiv:2509.22093},
+  year={2025}
+}`;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+</script>
+
+</body>
+</html>
